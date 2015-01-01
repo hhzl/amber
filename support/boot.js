@@ -98,7 +98,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 
 	var globals = {};
 	globals.SmalltalkSettings = {};
-	var api = Object.create(globals);
+	var api = {};
 	var brikz = new Brikz(api);
 
 	function RootBrik(brikz, st) {
@@ -190,25 +190,23 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 
 		/* Method not implemented handlers */
 
-		var methods = [], checker = Object.create(null);
+		var methods = [], methodDict = Object.create(null);
 		this.selectors = [];
+		this.jsSelectors = [];
 
 		this.get = function (stSelector) {
-			var index = this.selectors.indexOf(stSelector);
-			if(index !== -1) {
-				return methods[index];
+			var method = methodDict[stSelector];
+			if(method) {
+				return method;
 			}
-			this.selectors.push(stSelector);
 			var jsSelector = st.st2js(stSelector);
-			checker[jsSelector] = true;
-			var method = {jsSelector: jsSelector, fn: createHandler(stSelector)};
+			this.selectors.push(stSelector);
+			this.jsSelectors.push(jsSelector);
+			method = {jsSelector: jsSelector, fn: createHandler(stSelector)};
+			methodDict[stSelector] = method;
 			methods.push(method);
 			manip.installMethod(method, rootAsClass);
 			return method;
-		};
-
-		this.isSelector = function (jsSelector) {
-			return checker[jsSelector];
 		};
 
 		/* Dnu handler method */
@@ -218,71 +216,47 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 				return brikz.messageSend.messageNotUnderstood(this, stSelector, arguments);
 			};
 		}
-
-		this.installHandlers = function (klass) {
-			for(var i=0; i<methods.length; i++) {
-				manip.installMethodIfAbsent(methods[i], klass);
-			}
-		};
 	}
 
 	function ClassInitBrik(brikz, st) {
 
 		var dnu = brikz.ensure("dnu");
 		var manip = brikz.ensure("manipulation");
-		var nil = brikz.ensure("root").nil;
 
 		/* Initialize a class in its class hierarchy. Handle both classes and
 		 metaclasses. */
 
 		st.init = function(klass) {
-			st.initClass(klass);
+			initClass(klass);
 			if(klass.klass && !klass.meta) {
-				st.initClass(klass.klass);
+				initClass(klass.klass);
 			}
 		};
 
-		st.initClass = function(klass) {
+		function initClass(klass) {
 			if(klass.wrapped) {
 				copySuperclass(klass);
-				dnu.installHandlers(klass);
 			}
-		};
-
-		function copySuperclass(klass, superclass) {
-			var inheritedMethods = Object.create(null);
-			deinstallAllMethods(klass);
-			for (superclass = superclass || klass.superclass;
-				 superclass && superclass !== nil;
-				 superclass = superclass.superclass) {
-				for (var keys = Object.keys(superclass.methods), i = 0; i < keys.length; i++) {
-					inheritMethodIfAbsent(superclass.methods[keys[i]]);
-				}
-			}
-			manip.reinstallMethods(klass);
-
-			function inheritMethodIfAbsent(method) {
-				var selector = method.selector;
-
-				//TODO: prepare klass methods into inheritedMethods to only test once
-				if(klass.methods[selector] || inheritedMethods[selector]) {
-					return;
-				}
-
-				manip.installMethod(method, klass);
-				inheritedMethods[method.selector] = true;
-			}
-
 		}
 
-		function deinstallAllMethods(klass) {
-			var proto = klass.fn.prototype;
-			for(var keys = Object.getOwnPropertyNames(proto), i=0; i<keys.length; i++) {
-				var key = keys[i];
-				if (dnu.isSelector(key)) {
-					proto[key] = null;
+		this.initClass = initClass;
+
+		function copySuperclass(klass) {
+			var superclass = klass.superclass,
+				localMethods = klass.methods,
+				protectedJsSelectors = {};
+			Object.keys(localMethods).forEach(function (each) {
+				protectedJsSelectors[localMethods[each].jsSelector] = true;
+			});
+			var superproto = superclass.fn.prototype;
+			dnu.jsSelectors.forEach(function (selector) {
+				if (!protectedJsSelectors[selector]) {
+					manip.installMethod({
+						jsSelector: selector,
+						fn: superproto[selector]
+					}, klass);
 				}
-			}
+			});
 		}
 	}
 
@@ -301,12 +275,54 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			});
 		}
 		this.installMethod = installMethod;
+	}
 
-		this.reinstallMethods = function (klass) {
-			var methods = klass.methods;
-			for(var keys = Object.keys(methods), i=0; i<keys.length; i++) {
-				installMethod(methods[keys[i]], klass);
+
+	function PackagesBrik(brikz, st) {
+
+		var org = brikz.ensure("organize");
+		var root = brikz.ensure("root");
+		var nil = root.nil;
+		var SmalltalkObject = root.Object;
+
+		function SmalltalkPackage() {}
+
+		inherits(SmalltalkPackage, SmalltalkObject);
+
+		this.__init__ = function () {
+			st.addPackage("Kernel-Infrastructure");
+			st.wrapClassName("Package", "Kernel-Infrastructure", SmalltalkPackage, globals.Object, false);
+		};
+
+		st.packages = {};
+
+		/* Smalltalk package creation. To add a Package, use smalltalk.addPackage() */
+
+		function pkg(spec) {
+			var that = new SmalltalkPackage();
+			that.pkgName = spec.pkgName;
+			org.setupPackageOrganization(that);
+			that.properties = spec.properties || {};
+			return that;
+		}
+
+		/* Add a package to the smalltalk.packages object, creating a new one if needed.
+		 If pkgName is null or empty we return nil, which is an allowed package for a class.
+		 If package already exists we still update the properties of it. */
+
+		st.addPackage = function(pkgName, properties) {
+			if(!pkgName) {return nil;}
+			if(!(st.packages[pkgName])) {
+				st.packages[pkgName] = pkg({
+					pkgName: pkgName,
+					properties: properties
+				});
+			} else {
+				if(properties) {
+					st.packages[pkgName].properties = properties;
+				}
 			}
+			return st.packages[pkgName];
 		};
 	}
 
@@ -314,18 +330,16 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 
 		var org = brikz.ensure("organize");
 		var root = brikz.ensure("root");
-		brikz.ensure("classInit");
+		var classInit = brikz.ensure("classInit");
 		var nil = root.nil;
 		var rootAsClass = root.rootAsClass;
 		var SmalltalkObject = root.Object;
 		rootAsClass.klass = {fn: SmalltalkClass};
 
-		function SmalltalkPackage() {}
 		function SmalltalkBehavior() {}
 		function SmalltalkClass() {}
 		function SmalltalkMetaclass() {}
 
-		inherits(SmalltalkPackage, SmalltalkObject);
 		inherits(SmalltalkBehavior, SmalltalkObject);
 		inherits(SmalltalkClass, SmalltalkBehavior);
 		inherits(SmalltalkMetaclass, SmalltalkBehavior);
@@ -341,29 +355,12 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			// Manually bootstrap the metaclass hierarchy
 			globals.ProtoObject.klass.superclass = rootAsClass.klass = globals.Class;
 			addSubclass(globals.ProtoObject.klass);
-
-			st.addPackage("Kernel-Infrastructure");
-			st.wrapClassName("Package", "Kernel-Infrastructure", SmalltalkPackage, globals.Object, false);
 		};
 
 		/* Smalltalk classes */
 
 		var classes = [];
 		var wrappedClasses = [];
-
-		/* We hold all Packages in a separate Object */
-
-		st.packages = {};
-
-		/* Smalltalk package creation. To add a Package, use smalltalk.addPackage() */
-
-		function pkg(spec) {
-			var that = new SmalltalkPackage();
-			that.pkgName = spec.pkgName;
-			org.setupPackageOrganization(that);
-			that.properties = spec.properties || {};
-			return that;
-		}
 
 		/* Smalltalk class creation. A class is an instance of an automatically
 		 created metaclass object. Newly created classes (not their metaclass)
@@ -426,25 +423,6 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			});
 			wireKlass(klass);
 		}
-
-		/* Add a package to the smalltalk.packages object, creating a new one if needed.
-		 If pkgName is null or empty we return nil, which is an allowed package for a class.
-		 If package already exists we still update the properties of it. */
-
-		st.addPackage = function(pkgName, properties) {
-			if(!pkgName) {return nil;}
-			if(!(st.packages[pkgName])) {
-				st.packages[pkgName] = pkg({
-					pkgName: pkgName,
-					properties: properties
-				});
-			} else {
-				if(properties) {
-					st.packages[pkgName].properties = properties;
-				}
-			}
-			return st.packages[pkgName];
-		};
 
 		/* Add a class to the smalltalk object, creating a new one if needed.
 		 A Package is lazily created if it does not exist with given name. */
@@ -535,7 +513,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			// The fn property changed. We need to add back the klass property to the prototype
 			wireKlass(klass);
 
-			st.initClass(klass);
+			classInit.initClass(klass);
 		};
 
 		/* Create an alias for an existing class */
@@ -572,7 +550,6 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 		var SmalltalkObject = brikz.ensure("root").Object;
 		brikz.ensure("selectorConversion");
 		brikz.ensure("classes");
-		brikz.ensure("classInit");
 
 		function SmalltalkMethod() {}
 		inherits(SmalltalkMethod, SmalltalkObject);
@@ -590,8 +567,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			that.selector          = spec.selector;
 			that.jsSelector        = spec.jsSelector;
 			that.args              = spec.args || {};
-			// spec.category is kept for compatibility
-			that.protocol          = spec.protocol || spec.category;
+			that.protocol          = spec.protocol;
 			that.source            = spec.source;
 			that.messageSends      = spec.messageSends || [];
 			that.referencedClasses = spec.referencedClasses || [];
@@ -606,12 +582,16 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			}
 		}
 
-		/* Add/remove a method to/from a class */
-
-		st.addMethod = function (method, klass) {
+		function ensureJsSelector(method) {
 			if (!(method.jsSelector)) {
 				method.jsSelector = st.st2js(method.selector);
 			}
+		}
+
+		/* Add/remove a method to/from a class */
+
+		st.addMethod = function (method, klass) {
+			ensureJsSelector(method);
 			manip.installMethod(method, klass);
 			klass.methods[method.selector] = method;
 			method.methodClass = klass;
@@ -620,7 +600,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			// Therefore we populate the organizer here too
 			org.addOrganizationElement(klass, method.protocol);
 
-			propagateMethodChange(klass);
+			propagateMethodChange(klass, method);
 
 			var usedSelectors = method.messageSends;
 			var dnuHandlers = [];
@@ -638,17 +618,26 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			}
 		};
 
-		function propagateMethodChange(klass) {
+		function propagateMethodChange(klass, method) {
 			// If already initialized (else it will be done later anyway),
 			// re-initialize all subclasses to ensure the method change
 			// propagation (for wrapped classes, not using the prototype
 			// chain).
 
-			//TODO: optimize, only one method need to be updated, not all of them
 			if (stInit.initialized()) {
 				st.allSubclasses(klass).forEach(function (subclass) {
-					st.initClass(subclass);
+					initMethodInClass(subclass, method);
 				});
+			}
+		}
+
+		function initMethodInClass (klass, method) {
+			if (klass.wrapped && !klass.methods[method.selector]) {
+				var jsSelector = method.jsSelector;
+				manip.installMethod({
+					jsSelector: jsSelector,
+					fn: klass.superclass.fn.prototype[jsSelector]
+				}, klass);
 			}
 		}
 
@@ -661,11 +650,12 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 						klass.className);
 			}
 
-			delete klass.fn.prototype[st.st2js(method.selector)];
+			ensureJsSelector(method);
+			delete klass.fn.prototype[method.jsSelector];
 			delete klass.methods[method.selector];
 
-			st.initClass(klass);
-			propagateMethodChange(klass);
+			initMethodInClass(klass, method);
+			propagateMethodChange(klass, method);
 
 			// Do *not* delete protocols from here.
 			// This is handled by #removeCompiledMethod
@@ -700,7 +690,6 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 
 		brikz.ensure("classInit");
 		brikz.ensure("classes");
-		var nil = brikz.ensure("root").nil;
 
 		var initialized = false;
 
@@ -801,6 +790,8 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 							'default', 'delete', 'do', 'else', 'finally', 'for', 'function',
 							'if', 'in', 'instanceof', 'new', 'return', 'switch', 'this', 'throw',
 							'try', 'typeof', 'var', 'void', 'while', 'with',
+							// Amber protected words: these should not be compiled as-is when in code
+							'arguments',
 							// ES5: future use: http://es5.github.com/#x7.6.1.2
 							'class', 'const', 'enum', 'export', 'extends', 'import', 'super',
 							// ES5: future use in strict mode
@@ -962,7 +953,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 
 		function pushContext(setup) {
 			var newContext = st.thisContext = new SmalltalkMethodContext(st.thisContext, setup);
-            return newContext;
+			return newContext;
 		}
 
 		function popContext(context) {
@@ -986,7 +977,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			}
 			method = klass ? klass.fn.prototype[jsSelector] : receiver.klass && receiver[jsSelector];
 			if(method) {
-				return method.apply(receiver, args);
+				return method.apply(receiver, args || []);
 			} else {
 				return messageNotUnderstood(receiver, st.js2st(jsSelector), args);
 			}
@@ -1028,7 +1019,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 		function accessJavaScript(receiver, propertyName, args) {
 			var propertyValue = receiver[propertyName];
 			if (typeof propertyValue === "function" && !/^[A-Z]/.test(propertyName)) {
-				return propertyValue.apply(receiver, args);
+				return propertyValue.apply(receiver, args || []);
 			} else if (args.length > 0) {
 				receiver[propertyName] = args[0];
 				return nil;
@@ -1100,10 +1091,6 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 			var colonPosition = stSelector.indexOf(':');
 			return colonPosition === -1 ? stSelector : stSelector.slice(0, colonPosition);
 		};
-
-		// Backward-compatible names, deprecated.
-		st.selector = st.st2js;
-		st.convertSelector = st.js2st;
 	}
 
 	/* Adds AMD and requirejs related methods to the smalltalk object */
@@ -1146,6 +1133,7 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 	brikz.selectorConversion = SelectorConversionBrik;
 	brikz.classInit = ClassInitBrik;
 	brikz.manipulation = ManipulationBrik;
+	brikz.packages = PackagesBrik;
 	brikz.classes = ClassesBrik;
 	brikz.methods = MethodsBrik;
 	brikz.stInit = SmalltalkInitBrik;
@@ -1165,5 +1153,5 @@ define("amber/boot", [ 'require', './browser-compatibility' ], function (require
 		brikz.rebuild();
 	}
 
-	return { api: api, /*deprecated:*/vm: api, nil: brikz.root.nil, globals: globals, asReceiver: brikz.asReceiver.asReceiver };
+	return { api: api, nil: brikz.root.nil, globals: globals, asReceiver: brikz.asReceiver.asReceiver };
 });

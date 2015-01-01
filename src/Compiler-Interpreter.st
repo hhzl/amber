@@ -665,14 +665,14 @@ eval: aString
 	| source function |
 	
 	source := String streamContents: [ :str |
-		str nextPutAll: '(function('.
+		str nextPutAll: '0,(function('.
 		self context locals keys
 			do: [ :each | str nextPutAll: each ]
 			separatedBy: [ str nextPutAll: ',' ].
 		str
 			nextPutAll: '){ return (function() {';
 			nextPutAll: aString;
-			nextPutAll: '})() })' ].
+			nextPutAll: '})()})' ].
 			
 	function := Compiler new eval: source.
 	

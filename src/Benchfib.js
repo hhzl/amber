@@ -1,6 +1,5 @@
 define("amber_core/Benchfib", ["amber/boot", "amber_core/Kernel-Objects"], function($boot){
 var $core=$boot.api,nil=$boot.nil,$recv=$boot.asReceiver,$globals=$boot.globals;
-var smalltalk=$core,_st=$recv,globals=$globals;
 $core.addPackage('Benchfib');
 $core.packages["Benchfib"].transport = {"type":"amd","amdNamespace":"amber_core"};
 
@@ -14,7 +13,7 @@ fn: function (){
 var self=this;
 var result;
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 result=(0)._tinyBenchmarks();
 $recv(console)._log_("0 tinyBenchmarks => ".__comma(result));
@@ -39,7 +38,7 @@ protocol: '*Benchfib',
 fn: function (){
 var self=this;
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 var $2,$5,$4,$3,$1;
 $2=self.__lt((2));
@@ -83,7 +82,7 @@ var self=this;
 var size,flags,prime,k,count;
 function $Array(){return $globals.Array||(typeof Array=="undefined"?nil:Array)}
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 var $1,$2;
 size=(8190);
@@ -178,7 +177,7 @@ protocol: '*Benchfib',
 fn: function (){
 var self=this;
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 if (this < 2) {
 return 1;
@@ -205,7 +204,7 @@ protocol: '*Benchfib',
 fn: function (){
 var self=this;
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 
 var size = 8190;
@@ -252,7 +251,7 @@ var self=this;
 var t1,t2,r,n1,n2;
 function $Date(){return $globals.Date||(typeof Date=="undefined"?nil:Date)}
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 var $7,$6,$5,$4,$3,$2,$1;
 n1=(1);
@@ -374,7 +373,7 @@ var self=this;
 var t1,t2,r,n1,n2;
 function $Date(){return $globals.Date||(typeof Date=="undefined"?nil:Date)}
 //>>excludeStart("ctx", pragmas.excludeDebugContexts);
-return $core.withContext(function($ctx1) { 
+return $core.withContext(function($ctx1) {
 //>>excludeEnd("ctx");
 var $7,$6,$5,$4,$3,$2,$1;
 n1=(1);
