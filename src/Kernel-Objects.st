@@ -541,7 +541,20 @@ isImmutable
 	^ true
 ! !
 
-Object subclass: #Date
+Object subclass: #Magnitude
+	instanceVariableNames: ''
+	package: 'Kernel-Objects'!
+
+!Magnitude methodsFor: 'testing'!
+
+between: min and: max 
+    "Answer whether the receiver is less than or equal to the argument, max, 
+    and greater than or equal to the argument, min."
+
+    ^self >= min and: [self <= max]
+! !
+
+Magnitude subclass: #Date
 	instanceVariableNames: ''
 	package: 'Kernel-Objects'!
 !Date commentStamp!
@@ -748,7 +761,7 @@ today
 	^ self new
 ! !
 
-Object subclass: #Number
+Magnitude subclass: #Number
 	instanceVariableNames: ''
 	package: 'Kernel-Objects'!
 !Number commentStamp!
