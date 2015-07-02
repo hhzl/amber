@@ -2215,7 +2215,7 @@ $globals.Boolean);
 
 
 
-$core.addClass('Date', $globals.Object, [], 'Kernel-Objects');
+$core.addClass('Date', $globals.Magnitude, [], 'Kernel-Objects');
 //>>excludeStart("ide", pragmas.excludeIdeData);
 $globals.Date.comment="I am used to work with both dates and times. Therefore `Date today` and `Date now` are both valid in\x0aAmber and answer the same date object.\x0a\x0aDate directly maps to the `Date()` JavaScript constructor, and Amber date objects are JavaScript date objects.\x0a\x0a## API\x0a\x0aThe class-side `instance creation` protocol contains some convenience methods for creating date/time objects such as `#fromSeconds:`.\x0a\x0aArithmetic and comparison is supported (see the `comparing` and `arithmetic` protocols).\x0a\x0aThe `converting` protocol provides convenience methods for various convertions (to numbers, strings, etc.).";
 //>>excludeEnd("ide");
@@ -3260,7 +3260,7 @@ messageSends: ["new"]
 $globals.Date.klass);
 
 
-$core.addClass('Number', $globals.Object, [], 'Kernel-Objects');
+$core.addClass('Number', $globals.Magnitude, [], 'Kernel-Objects');
 //>>excludeStart("ide", pragmas.excludeIdeData);
 $globals.Number.comment="I am the Amber representation for all numbers.\x0aI am directly mapped to JavaScript Number.\x0a\x0a## API\x0a\x0aI provide all necessary methods for arithmetic operations, comparison, conversion and so on with numbers.\x0a\x0aMy instances can also be used to evaluate a block a fixed number of times:\x0a\x0a\x095 timesRepeat: [ Transcript show: 'This will be printed 5 times'; cr ].\x0a\x09\x0a\x091 to: 5 do: [ :aNumber| Transcript show: aNumber asString; cr ].\x0a\x09\x0a\x091 to: 10 by: 2 do: [ :aNumber| Transcript show: aNumber asString; cr ].";
 //>>excludeEnd("ide");

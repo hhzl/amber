@@ -752,11 +752,16 @@ define("amber/boot", ['require', './browser-compatibility'], function (require) 
         };
 
         this.__init__ = function () {
+            
+            st.addClass("Magnitude", globals.Object, null, "Kernel-Objects"); 
+
+            st.wrapClassName("Number", "Kernel-Objects", Number, globals.Magnitude);  
+            st.wrapClassName("Date", "Kernel-Objects", Date, globals.Magnitude);   
+
             st.addPackage("Kernel-Methods");
-            st.wrapClassName("Number", "Kernel-Objects", Number, globals.Object);
             st.wrapClassName("BlockClosure", "Kernel-Methods", Function, globals.Object);
             st.wrapClassName("Boolean", "Kernel-Objects", Boolean, globals.Object);
-            st.wrapClassName("Date", "Kernel-Objects", Date, globals.Object);
+
 
             st.addPackage("Kernel-Collections");
             st.addClass("Collection", globals.Object, null, "Kernel-Collections");
